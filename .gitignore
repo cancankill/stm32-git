@@ -1,0 +1,25 @@
+# Build output
+build/
+Objects/
+Listings/
+*.o
+*.d
+*.crf
+*.elf
+*.hex
+*.bin
+*.map
+*.axf
+
+# Keil project files (user-specific)
+*.uvguix.*
+*.uvoptx
+*.scvd
+
+# Temporary files
+*.bak
+*.tmp
+fix_encoding.py
+
+# IDE
+.vscode/
