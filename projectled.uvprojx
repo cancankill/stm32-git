@@ -745,6 +745,26 @@
               <FileType>5</FileType>
               <FilePath>.\Hardware\Serial.h</FilePath>
             </File>
+            <File>
+              <FileName>HC_SR04.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\HC_SR04.c</FilePath>
+            </File>
+            <File>
+              <FileName>HC_SR04.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Hardware\HC_SR04.h</FilePath>
+            </File>
+            <File>
+              <FileName>Tracking.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\Tracking.c</FilePath>
+            </File>
+            <File>
+              <FileName>Tracking.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Hardware\Tracking.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

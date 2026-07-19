@@ -1,6 +1,8 @@
 #ifndef __MOTOR__H
 #define __MOTOR__H
 
+#include <stdint.h>
+
 void Motor_Init(void);
 
 void Motor_SetSpeed_FL(int8_t Speed) ;    //左前轮速度 

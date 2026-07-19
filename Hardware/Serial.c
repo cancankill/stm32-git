@@ -29,6 +29,8 @@ void Serial_Init(void)
   USART_InitStruture.USART_StopBits = USART_StopBits_1; // 一位停止位
   USART_InitStruture.USART_WordLength = USART_WordLength_8b;  // 字长
 
+  USART_Init(USART1, &USART_InitStruture);    // 初始化串口（配置波特率等）
+
   USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);
 
   NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);  // 中断分组
@@ -46,7 +48,7 @@ void Serial_Init(void)
 void Serial_SendByte(uint8_t Byte)   // 发送一个字节
 {
    USART_SendData(USART1, Byte);
-   while(USART_GetITStatus(USART1, USART_FLAG_TXE) == RESET); // 等待发送完成
+   while(USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET); // 等待发送完成
 }
 
 void Serial_SendArray(uint8_t *Array, uint16_t length)   // 发送一个数组
