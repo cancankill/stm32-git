@@ -2,9 +2,11 @@
 #include "Tracking.h"
 #include "Motor.h"
 
-/* ── 静态变量：丢线记忆 ─────────────────────── */
-static float Track_Last_Error = 0;
-static float Track_Prev_Error = 0;
+/* ── 静态变量：增量式 PID + 丢线记忆 ────────── */
+static float Track_Last_Error      = 0;   /* 丢线记忆              */
+static float Track_Prev_Error      = 0;   /* e(k-1)                */
+static float Track_Prev_Prev_Error = 0;   /* e(k-2)                */
+static float Track_Turn            = 0;   /* 增量式 PID 输出累加值  */
 
 /**
  * @brief  循迹传感器 GPIO 初始化
@@ -84,7 +86,7 @@ void Tracking_GetSensors(int *pL1, int *pL2, int *pR1, int *pR2)
 }
 
 /**
- * @brief  循迹巡逻 — PD 控制器 + 丢线恢复 + 差速执行
+ * @brief  循迹巡逻 — 增量式 PID + 丢线恢复 + 差速执行
  * @param  baseSpeed — 基础速度 0~100
  *
  *  误差权重: L1=-3, L2=-1, R1=+1, R2=+3
@@ -136,12 +138,22 @@ void Tracking_Patrol(int baseSpeed)
         }
     }
 
-    /* ── 3. PD 控制器 ───────────────────────── */
-    float P = TRACK_KP * error;
-    float D = TRACK_KD * (error - Track_Prev_Error);
-    Track_Prev_Error = error;
+    /* ── 3. 增量式 PID 控制器 ──────────────── */
+    /*   Δu = Kp·[e(k)-e(k-1)] + Ki·e(k) + Kd·[e(k)-2e(k-1)+e(k-2)] */
+    float delta = TRACK_KP * (error - Track_Prev_Error)
+                + TRACK_KI * error
+                + TRACK_KD * (error - 2.0f * Track_Prev_Error + Track_Prev_Prev_Error);
 
-    float Turn = P + D;
+    /* 误差历史推移 */
+    Track_Prev_Prev_Error = Track_Prev_Error;
+    Track_Prev_Error      = error;
+
+    /* 增量累加 + 输出限幅（防积分饱和） */
+    Track_Turn += delta;
+    if      (Track_Turn >  100.0f) Track_Turn =  100.0f;
+    else if (Track_Turn < -100.0f) Track_Turn = -100.0f;
+
+    float Turn = Track_Turn;
 
     /* ── 4. 差速分配 ────────────────────────── */
     int left_speed  = baseSpeed + (int)Turn;

@@ -34,8 +34,9 @@
 /* 1 = 高电平表示黑线 (模块输出高电平有效)         */
 #define BLACK_IS_LOW    1
 
-/* ── PID 参数 ────────────────────────────────── */
+/* ── 增量式 PID 参数 ─────────────────────────── */
 #define TRACK_KP           200.0f
+#define TRACK_KI           10.0f
 #define TRACK_KD           30.0f
 #define TRACK_BASE_SPEED   50
 
@@ -51,10 +52,10 @@ void Tracking_GPIO_Init(void);
 void Tracking_GetSensors(int *pL1, int *pL2, int *pR1, int *pR2);
 
 /**
- * @brief  循迹巡逻（PD 控制器）
+ * @brief  循迹巡逻（增量式 PID 控制器）
  * @param  baseSpeed — 基础速度 0~100
  *
- * 根据四路传感器反馈实时修正左右轮差速。
+ * 增量式 PID 根据四路传感器反馈实时修正左右轮差速。
  * 丢线时利用 Last_Error 记忆找回。
  */
 void Tracking_Patrol(int baseSpeed);
