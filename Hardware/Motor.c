@@ -1,105 +1,112 @@
-#include "stm32f10x.h"                  // Device header
+/**
+ * Motor driver — 四路电机方向 + PWM 调速（HAL 版本）
+ */
+
+#include "stm32f1xx_hal.h"
+#include "Motor.h"
 #include "PWM.h"
 
-int8_t speed_fl;
-int8_t speed_fr;
-int8_t speed_bl;
-int8_t speed_br;
+/* 方向引脚定义 */
+#define FL_PLUS_PIN     GPIO_PIN_4
+#define FL_MINUS_PIN    GPIO_PIN_5
+#define FL_PORT         GPIOA
 
+#define FR_PLUS_PIN     GPIO_PIN_12
+#define FR_MINUS_PIN    GPIO_PIN_13
+#define FR_PORT         GPIOB
+
+#define BL_PLUS_PIN     GPIO_PIN_8
+#define BL_MINUS_PIN    GPIO_PIN_15
+#define BL_PORT         GPIOA
+
+#define BR_PLUS_PIN     GPIO_PIN_14
+#define BR_MINUS_PIN    GPIO_PIN_15
+#define BR_PORT         GPIOB
 
 void Motor_Init(void)
 {
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA,ENABLE);
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB,ENABLE);
-	
-    GPIO_InitTypeDef GPIO_InitStructure;
-    GPIO_InitStructure.GPIO_Mode=GPIO_Mode_Out_PP;
-    GPIO_InitStructure.GPIO_Pin=GPIO_Pin_4 | GPIO_Pin_5 |GPIO_Pin_8 | GPIO_Pin_15 ;
-    GPIO_InitStructure.GPIO_Speed=GPIO_Speed_50MHz;
-    GPIO_Init(GPIOA,&GPIO_InitStructure);
-	
-    GPIO_InitStructure.GPIO_Mode=GPIO_Mode_Out_PP;
-    GPIO_InitStructure.GPIO_Pin= GPIO_Pin_12 | GPIO_Pin_13 |GPIO_Pin_14 | GPIO_Pin_15 ;
-    GPIO_InitStructure.GPIO_Speed=GPIO_Speed_50MHz;
-    GPIO_Init(GPIOB,&GPIO_InitStructure);
-	
-  
-	
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+
+    GPIO_InitTypeDef gpio = {0};
+    gpio.Mode  = GPIO_MODE_OUTPUT_PP;
+    gpio.Speed = GPIO_SPEED_FREQ_HIGH;
+
+    /* PA4, PA5, PA8, PA15 — FL 和 BL 方向 */
+    gpio.Pin = FL_PLUS_PIN | FL_MINUS_PIN | BL_PLUS_PIN | BL_MINUS_PIN;
+    HAL_GPIO_Init(FL_PORT, &gpio);
+
+    /* PB12, PB13, PB14, PB15 — FR 和 BR 方向 */
+    gpio.Pin = FR_PLUS_PIN | FR_MINUS_PIN | BR_PLUS_PIN | BR_MINUS_PIN;
+    HAL_GPIO_Init(FR_PORT, &gpio);
+
+    /* 初始全低 */
+    HAL_GPIO_WritePin(FL_PORT, FL_PLUS_PIN | FL_MINUS_PIN | BL_PLUS_PIN | BL_MINUS_PIN, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(FR_PORT, FR_PLUS_PIN | FR_MINUS_PIN | BR_PLUS_PIN | BR_MINUS_PIN, GPIO_PIN_RESET);
+
     PWM_Init();
 }
 
-void Motor_SetSpeed_FL(int8_t Speed)   //左前轮 PA4,PA5
+void Motor_SetSpeed_FL(int8_t Speed)
 {
-    
-    if(Speed>=0)
+    if (Speed >= 0)
     {
-      GPIO_SetBits(GPIOA,GPIO_Pin_4); 
-      GPIO_ResetBits(GPIOA,GPIO_Pin_5);
-      PWM_SetCompare1(Speed);
+        HAL_GPIO_WritePin(FL_PORT, FL_PLUS_PIN,  GPIO_PIN_SET);
+        HAL_GPIO_WritePin(FL_PORT, FL_MINUS_PIN, GPIO_PIN_RESET);
+        PWM_SetCompare1(Speed);
     }
     else
-    { 
-      
-      GPIO_ResetBits(GPIOA,GPIO_Pin_4);
-      GPIO_SetBits(GPIOA,GPIO_Pin_5);
-      PWM_SetCompare1(-Speed);
+    {
+        HAL_GPIO_WritePin(FL_PORT, FL_PLUS_PIN,  GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(FL_PORT, FL_MINUS_PIN, GPIO_PIN_SET);
+        PWM_SetCompare1(-Speed);
     }
-    speed_fl=Speed;
-    
 }
 
-
-void Motor_SetSpeed_FR(int8_t Speed)  //右前轮 PB12,PB13
+void Motor_SetSpeed_FR(int8_t Speed)
 {
-    if(Speed>=0)
+    if (Speed >= 0)
     {
-      GPIO_SetBits(GPIOB,GPIO_Pin_12); 
-      GPIO_ResetBits(GPIOB,GPIO_Pin_13);
-      PWM_SetCompare2(Speed);
+        HAL_GPIO_WritePin(FR_PORT, FR_PLUS_PIN,  GPIO_PIN_SET);
+        HAL_GPIO_WritePin(FR_PORT, FR_MINUS_PIN, GPIO_PIN_RESET);
+        PWM_SetCompare2(Speed);
     }
     else
-    { 
-      
-      GPIO_ResetBits(GPIOB,GPIO_Pin_12);
-      GPIO_SetBits(GPIOB,GPIO_Pin_13);
-      PWM_SetCompare2(-Speed);
+    {
+        HAL_GPIO_WritePin(FR_PORT, FR_PLUS_PIN,  GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(FR_PORT, FR_MINUS_PIN, GPIO_PIN_SET);
+        PWM_SetCompare2(-Speed);
     }
-     speed_fr=Speed;
 }
 
-void Motor_SetSpeed_BL(int8_t Speed)   //左后轮 PA8,PA15
+void Motor_SetSpeed_BL(int8_t Speed)
 {
-    if(Speed>=0)
+    if (Speed >= 0)
     {
-      GPIO_SetBits(GPIOA,GPIO_Pin_8); 
-      GPIO_ResetBits(GPIOA,GPIO_Pin_15);
-      PWM_SetCompare3(Speed);
+        HAL_GPIO_WritePin(BL_PORT, BL_PLUS_PIN,  GPIO_PIN_SET);
+        HAL_GPIO_WritePin(BL_PORT, BL_MINUS_PIN, GPIO_PIN_RESET);
+        PWM_SetCompare3(Speed);
     }
     else
-    { 
-      
-      GPIO_ResetBits(GPIOA,GPIO_Pin_8);
-      GPIO_SetBits(GPIOA,GPIO_Pin_15);
-      PWM_SetCompare3(-Speed);
+    {
+        HAL_GPIO_WritePin(BL_PORT, BL_PLUS_PIN,  GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(BL_PORT, BL_MINUS_PIN, GPIO_PIN_SET);
+        PWM_SetCompare3(-Speed);
     }
-    speed_bl=Speed;
 }
 
-void Motor_SetSpeed_BR(int8_t Speed)  //右后轮 PB14,PB15
+void Motor_SetSpeed_BR(int8_t Speed)
 {
-    if(Speed>=0)
+    if (Speed >= 0)
     {
-      GPIO_SetBits(GPIOB,GPIO_Pin_14); 
-      GPIO_ResetBits(GPIOB,GPIO_Pin_15);
-      PWM_SetCompare4(Speed);
+        HAL_GPIO_WritePin(BR_PORT, BR_PLUS_PIN,  GPIO_PIN_SET);
+        HAL_GPIO_WritePin(BR_PORT, BR_MINUS_PIN, GPIO_PIN_RESET);
+        PWM_SetCompare4(Speed);
     }
     else
-    { 
-      
-      GPIO_ResetBits(GPIOB,GPIO_Pin_14);
-      GPIO_SetBits(GPIOB,GPIO_Pin_15);
-      PWM_SetCompare4(-Speed);
+    {
+        HAL_GPIO_WritePin(BR_PORT, BR_PLUS_PIN,  GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(BR_PORT, BR_MINUS_PIN, GPIO_PIN_SET);
+        PWM_SetCompare4(-Speed);
     }
-    speed_br=Speed;
 }
-

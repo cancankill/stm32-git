@@ -1,31 +1,43 @@
-#include "stm32f10x.h"
-#include "Delay.h"
+/**
+ * 按键驱动 (HAL + FreeRTOS 版本)
+ *
+ * 消抖使用 vTaskDelay（让出 CPU），仅在调度器运行后有效。
+ * 调度器启动前（初始化阶段）不会调用 Key_Get，因此安全。
+ */
 
-static uint8_t Key_State[2] = {0, 0};  // 0=松开, 1=按下
+#include "stm32f1xx_hal.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "Key.h"
+
+static uint8_t Key_State[2] = {0, 0};  /* 0=松开, 1=按下 */
 
 void key_Init(void)
 {
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+    __HAL_RCC_GPIOB_CLK_ENABLE();
 
-    GPIO_InitTypeDef GPIO_InitStucture;
-    GPIO_InitStucture.GPIO_Mode = GPIO_Mode_IPU;
-    GPIO_InitStucture.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_11;
-    GPIO_InitStucture.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOB, &GPIO_InitStucture);
+    GPIO_InitTypeDef gpio = {0};
+    gpio.Mode = GPIO_MODE_INPUT;
+    gpio.Pull = GPIO_PULLUP;
+    gpio.Pin  = GPIO_PIN_0 | GPIO_PIN_11;
+    HAL_GPIO_Init(GPIOB, &gpio);
 }
 
-// 返回: 0=无按键, 1=PB0按下, 2=PB11按下 (带消抖)
+/**
+ * @brief  读取按键（带 20ms 消抖）
+ * @return 0=无按键, 1=PB0按下, 2=PB11按下
+ */
 uint8_t Key_Get(void)
 {
     uint8_t result = 0;
 
-    // PB0
-    if (GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_0) == 0)
+    /* PB0 */
+    if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_RESET)
     {
         if (Key_State[0] == 0)
         {
-            Delay_ms(20);  // 消抖
-            if (GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_0) == 0)
+            vTaskDelay(pdMS_TO_TICKS(20));  /* 消抖，让出 CPU */
+            if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_RESET)
             {
                 Key_State[0] = 1;
                 result = 1;
@@ -37,13 +49,13 @@ uint8_t Key_Get(void)
         Key_State[0] = 0;
     }
 
-    // PB11
-    if (GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_11) == 0)
+    /* PB11 */
+    if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_11) == GPIO_PIN_RESET)
     {
         if (Key_State[1] == 0)
         {
-            Delay_ms(20);  // 消抖
-            if (GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_11) == 0)
+            vTaskDelay(pdMS_TO_TICKS(20));  /* 消抖 */
+            if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_11) == GPIO_PIN_RESET)
             {
                 Key_State[1] = 1;
                 result = 2;

@@ -1,4 +1,8 @@
-#include "stm32f10x.h"    // Device header
+/**
+ * 循迹模块 — 四路红外传感器 + 增量式 PID 控制器 (HAL 版本)
+ */
+
+#include "stm32f1xx_hal.h"
 #include "Tracking.h"
 #include "Motor.h"
 
@@ -11,75 +15,76 @@ static float Track_Turn            = 0;   /* 增量式 PID 输出累加值  */
 /**
  * @brief  循迹传感器 GPIO 初始化
  *         每个传感器独立 #ifdef 控制，可灵活增减
- *         引脚配置为 IPU (上拉输入)，模块输出低电平有效
+ *         引脚配置为上拉输入 (Pull-up)，模块输出低电平有效
  */
 void Tracking_GPIO_Init(void)
 {
-    GPIO_InitTypeDef GPIO_InitStructure;
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
 
     /* 解除 JTAG 复用，释放 PB3 */
-    GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable, ENABLE);
+    __HAL_RCC_AFIO_CLK_ENABLE();
+    __HAL_AFIO_REMAP_SWJ_NOJTAG();
 
 #ifdef USE_TRACK_L1
-    RCC_APB2PeriphClockCmd(TRACK_L1_RCC, ENABLE);
-    GPIO_InitStructure.GPIO_Pin   = TRACK_L1_PIN;
-    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IPU;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(TRACK_L1_PORT, &GPIO_InitStructure);
+    TRACK_L1_RCC();
+    GPIO_InitStruct.Pin  = TRACK_L1_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(TRACK_L1_PORT, &GPIO_InitStruct);
 #endif
 
 #ifdef USE_TRACK_L2
-    RCC_APB2PeriphClockCmd(TRACK_L2_RCC, ENABLE);
-    GPIO_InitStructure.GPIO_Pin   = TRACK_L2_PIN;
-    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IPU;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(TRACK_L2_PORT, &GPIO_InitStructure);
+    TRACK_L2_RCC();
+    GPIO_InitStruct.Pin  = TRACK_L2_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(TRACK_L2_PORT, &GPIO_InitStruct);
 #endif
 
 #ifdef USE_TRACK_R1
-    RCC_APB2PeriphClockCmd(TRACK_R1_RCC, ENABLE);
-    GPIO_InitStructure.GPIO_Pin   = TRACK_R1_PIN;
-    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IPU;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(TRACK_R1_PORT, &GPIO_InitStructure);
+    TRACK_R1_RCC();
+    GPIO_InitStruct.Pin  = TRACK_R1_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(TRACK_R1_PORT, &GPIO_InitStruct);
 #endif
 
 #ifdef USE_TRACK_R2
-    RCC_APB2PeriphClockCmd(TRACK_R2_RCC, ENABLE);
-    GPIO_InitStructure.GPIO_Pin   = TRACK_R2_PIN;
-    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IPU;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(TRACK_R2_PORT, &GPIO_InitStructure);
+    TRACK_R2_RCC();
+    GPIO_InitStruct.Pin  = TRACK_R2_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(TRACK_R2_PORT, &GPIO_InitStruct);
 #endif
 }
 
 /**
  * @brief  读取四路传感器原始值
  * @param  pL1, pL2, pR1, pR2 — 返回各传感器状态
- *         BLACK_IS_LOW=1 时: 0=黑线, 1=白底
+ *         BLACK_IS_LOW=1 → 0=黑线, 1=白底
  */
 void Tracking_GetSensors(int *pL1, int *pL2, int *pR1, int *pR2)
 {
 #ifdef USE_TRACK_L1
-    *pL1 = GPIO_ReadInputDataBit(TRACK_L1_PORT, TRACK_L1_PIN);
+    *pL1 = (HAL_GPIO_ReadPin(TRACK_L1_PORT, TRACK_L1_PIN) == GPIO_PIN_SET) ? 1 : 0;
 #else
-    *pL1 = 1;  /* 未配置则视为白底 */
+    *pL1 = 1;
 #endif
 
 #ifdef USE_TRACK_L2
-    *pL2 = GPIO_ReadInputDataBit(TRACK_L2_PORT, TRACK_L2_PIN);
+    *pL2 = (HAL_GPIO_ReadPin(TRACK_L2_PORT, TRACK_L2_PIN) == GPIO_PIN_SET) ? 1 : 0;
 #else
     *pL2 = 1;
 #endif
 
 #ifdef USE_TRACK_R1
-    *pR1 = GPIO_ReadInputDataBit(TRACK_R1_PORT, TRACK_R1_PIN);
+    *pR1 = (HAL_GPIO_ReadPin(TRACK_R1_PORT, TRACK_R1_PIN) == GPIO_PIN_SET) ? 1 : 0;
 #else
     *pR1 = 1;
 #endif
 
 #ifdef USE_TRACK_R2
-    *pR2 = GPIO_ReadInputDataBit(TRACK_R2_PORT, TRACK_R2_PIN);
+    *pR2 = (HAL_GPIO_ReadPin(TRACK_R2_PORT, TRACK_R2_PIN) == GPIO_PIN_SET) ? 1 : 0;
 #else
     *pR2 = 1;
 #endif
@@ -125,8 +130,8 @@ void Tracking_Patrol(int baseSpeed)
     else
     {
         /* 丢线处理：根据最后偏差方向继续偏转 */
-        if      (Track_Last_Error < -1.0f) error = -4.0f;  /* 偏左严重，大右转找回 */
-        else if (Track_Last_Error >  1.0f) error =  4.0f;  /* 偏右严重，大左转找回 */
+        if      (Track_Last_Error < -1.0f) error = -4.0f;  /* 偏左严重，右转找回 */
+        else if (Track_Last_Error >  1.0f) error =  4.0f;  /* 偏右严重，左转找回 */
         else
         {
             /* 完全丢失 → 停车等待 */

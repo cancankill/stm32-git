@@ -1,71 +1,47 @@
-#include "stm32f10x.h"
+/**
+ * LED 驱动 (HAL 版本)
+ */
 
- void LED_Init(void)
- {
-	 RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA,ENABLE);
-	 
-	 GPIO_InitTypeDef GPIO_InitStructure;
-	 GPIO_InitStructure.GPIO_Mode=GPIO_Mode_Out_PP ;
-	 GPIO_InitStructure.GPIO_Pin= GPIO_Pin_1 | GPIO_Pin_2;
-	 GPIO_InitStructure.GPIO_Speed= GPIO_Speed_50MHz;
-	 GPIO_Init(GPIOA,&GPIO_InitStructure);
-	 	 
- }
- 
- 
- void led1_on(void)
- {
-     GPIO_ResetBits(GPIOA, GPIO_Pin_1);
-	 
- 
- }
- 
- void led1_off(void)
- {
-	 
-    GPIO_SetBits(GPIOA, GPIO_Pin_1);	 
-	 
- }
- 
- void  LED1_turn(void)
- {
-	 if(GPIO_ReadOutputDataBit(GPIOA,GPIO_Pin_1)==0)
-	 {
-		 
-            GPIO_SetBits(GPIOA,GPIO_Pin_1);		 
-		 
-	 }
-	 else
-	 {
-	   GPIO_ResetBits(GPIOA,GPIO_Pin_1 );	 
-          }
-	 
- }
-                                                          
- void led2_on(void)
- {
-     GPIO_ResetBits(GPIOA, GPIO_Pin_2);
- 
- }
- 
- void led2_off(void)
- {
-	 
-    GPIO_SetBits(GPIOA, GPIO_Pin_2);	 
-	 
- }
- 
- void  LED2_turn(void)
- {
-	 if(GPIO_ReadOutputDataBit(GPIOA,GPIO_Pin_2)==0)
-	 {
-		 
-            GPIO_SetBits(GPIOA,GPIO_Pin_2);		 
-		 
-	 }
-	 else
-	 {
-	   GPIO_ResetBits(GPIOA,GPIO_Pin_2 );	 
-          }
-	 
- }
+#include "stm32f1xx_hal.h"
+#include "led.h"
+
+void LED_Init(void)
+{
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+
+    GPIO_InitTypeDef gpio = {0};
+    gpio.Mode  = GPIO_MODE_OUTPUT_PP;
+    gpio.Pin   = GPIO_PIN_1 | GPIO_PIN_2;
+    gpio.Speed = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(GPIOA, &gpio);
+}
+
+void led1_on(void)
+{
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
+}
+
+void led1_off(void)
+{
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET);
+}
+
+void LED1_turn(void)
+{
+    HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_1);
+}
+
+void led2_on(void)
+{
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET);
+}
+
+void led2_off(void)
+{
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_SET);
+}
+
+void LED2_turn(void)
+{
+    HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_2);
+}

@@ -1,84 +1,90 @@
-#include "stm32f10x.h"                  // Device header
+/**
+ * PWM driver — HAL TIM2 四路 PWM 输出
+ *
+ * TIM2 挂在 APB1 (36MHz), 经过倍频后时钟 = 72MHz
+ * PSC = 72-1 → 计数频率 1MHz
+ * ARR = 100-1 → PWM 频率 10kHz, 占空比分辨率 0~100
+ */
 
+#include "stm32f1xx_hal.h"
+#include "PWM.h"
 
+TIM_HandleTypeDef htim2;
+
+/**
+ * @brief  HAL MSP 回调 — 初始化 TIM2 GPIO 和时钟
+ *         由 HAL_TIM_PWM_Init() 内部调用
+ */
+void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM2)
+    {
+        __HAL_RCC_TIM2_CLK_ENABLE();
+        __HAL_RCC_GPIOA_CLK_ENABLE();
+        __HAL_RCC_AFIO_CLK_ENABLE();
+
+        /* PA0, PA1, PA2, PA3 → TIM2_CH1~CH4 复用推挽输出 */
+        GPIO_InitTypeDef gpio = {0};
+        gpio.Mode  = GPIO_MODE_AF_PP;
+        gpio.Speed = GPIO_SPEED_FREQ_HIGH;
+        gpio.Pin   = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3;
+        HAL_GPIO_Init(GPIOA, &gpio);
+
+        /* 解除 JTAG 复用，释放 PA15 / PB3 / PB4 （PA15 用于电机 BL 方向） */
+        __HAL_AFIO_REMAP_SWJ_NOJTAG();
+    }
+}
+
+/**
+ * @brief  初始化 TIM2 四路 PWM
+ */
 void PWM_Init(void)
 {
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2,ENABLE); //选择内部时钟
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA,ENABLE);
-    
-	
-	
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO,ENABLE);
-//    GPIO_PinRemapConfig(GPIO_PartialRemap1_TIM2,ENABLE);//端口重映射
-    GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable,ENABLE); //解除jtag的复用
-	
-	 
-    GPIO_InitTypeDef GPIO_InitStructure;
-    GPIO_InitStructure.GPIO_Mode=GPIO_Mode_AF_PP ;
-    GPIO_InitStructure.GPIO_Pin= GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_3;
-    GPIO_InitStructure.GPIO_Speed= GPIO_Speed_50MHz;
-    GPIO_Init(GPIOA,&GPIO_InitStructure);
-    
-    TIM_InternalClockConfig(TIM2); //初始化时基单元
-      
-    TIM_TimeBaseInitTypeDef TIM_TimeBaseInitstructure;
-    TIM_TimeBaseInitstructure.TIM_ClockDivision=TIM_CKD_DIV1;
-    TIM_TimeBaseInitstructure.TIM_CounterMode=TIM_CounterMode_Up;
-    TIM_TimeBaseInitstructure.TIM_Period=100-1;  //ARR
-    TIM_TimeBaseInitstructure.TIM_Prescaler=36-1; //PSC
-    TIM_TimeBaseInitstructure.TIM_RepetitionCounter=0;
-    TIM_TimeBaseInit(TIM2,&TIM_TimeBaseInitstructure)	;
-	
-	
-     TIM_OCInitTypeDef TIM_OCInitStructure;
-     TIM_OCStructInit(&TIM_OCInitStructure);  //给结构体赋初始值
-     
-     TIM_OCInitStructure.TIM_OCMode=TIM_OCMode_PWM1;
-     TIM_OCInitStructure.TIM_OCNPolarity=TIM_OCPolarity_High;
-     TIM_OCInitStructure.TIM_OutputState=TIM_OutputState_Enable; 
-     TIM_OCInitStructure.TIM_Pulse=0;  //CCR
-     TIM_OC1Init(TIM2,&TIM_OCInitStructure);  //初始化oc比较器
-     
-     TIM_OCInitStructure.TIM_OCMode=TIM_OCMode_PWM1;
-     TIM_OCInitStructure.TIM_OCNPolarity=TIM_OCPolarity_High;
-     TIM_OCInitStructure.TIM_OutputState=TIM_OutputState_Enable; 
-     TIM_OCInitStructure.TIM_Pulse=0;  //CCR
-     TIM_OC2Init(TIM2,&TIM_OCInitStructure);  //初始化oc比较器
-     
-     TIM_OCInitStructure.TIM_OCMode=TIM_OCMode_PWM1;
-     TIM_OCInitStructure.TIM_OCNPolarity=TIM_OCPolarity_High;
-     TIM_OCInitStructure.TIM_OutputState=TIM_OutputState_Enable; 
-     TIM_OCInitStructure.TIM_Pulse=0;  //CCR
-     TIM_OC3Init(TIM2,&TIM_OCInitStructure);  //初始化oc比较器
-     
-     TIM_OCInitStructure.TIM_OCMode=TIM_OCMode_PWM1;
-     TIM_OCInitStructure.TIM_OCNPolarity=TIM_OCPolarity_High;
-     TIM_OCInitStructure.TIM_OutputState=TIM_OutputState_Enable; 
-     TIM_OCInitStructure.TIM_Pulse=0;  //CCR
-     TIM_OC4Init(TIM2,&TIM_OCInitStructure);  //初始化oc比较器
+    TIM_OC_InitTypeDef sConfigOC = {0};
 
-     TIM_Cmd(TIM2,ENABLE);
-	
-  
+    htim2.Instance               = TIM2;
+    htim2.Init.Prescaler         = 72 - 1;       /* 72MHz / 72 = 1MHz */
+    htim2.Init.CounterMode       = TIM_COUNTERMODE_UP;
+    htim2.Init.Period            = 100 - 1;      /* 1MHz / 100 = 10kHz */
+    htim2.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
+    htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+
+    HAL_TIM_PWM_Init(&htim2);
+
+    /* 配置四个 PWM 通道 */
+    sConfigOC.OCMode     = TIM_OCMODE_PWM1;
+    sConfigOC.Pulse      = 0;                   /* 初始占空比 0 */
+    sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+    sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+
+    HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1);
+    HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2);
+    HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3);
+    HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4);
+
+    /* 启动所有通道 */
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
 }
 
 void PWM_SetCompare1(uint8_t Compare)
 {
-   TIM_SetCompare1(TIM2,Compare);
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, Compare);
 }
 
 void PWM_SetCompare2(uint8_t Compare)
 {
-   TIM_SetCompare2(TIM2,Compare);
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, Compare);
 }
 
 void PWM_SetCompare3(uint8_t Compare)
 {
-   TIM_SetCompare3(TIM2,Compare);
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, Compare);
 }
 
 void PWM_SetCompare4(uint8_t Compare)
 {
-   TIM_SetCompare4(TIM2,Compare);
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, Compare);
 }
-

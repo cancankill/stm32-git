@@ -1,4 +1,4 @@
-#include "stm32f10x.h"
+#include "stm32f1xx_hal.h"
 #include "OLED.h"
 #include <string.h>
 #include <math.h>
@@ -12,8 +12,8 @@ uint8_t OLED_DisplayBuf[8][128];
 void OLED_W_SCL(uint8_t BitValue)
 {
 	/*根据BitValue的值，将SCL置高电平或者低电平*/
-	GPIO_WriteBit(GPIOB, GPIO_Pin_8, (BitAction)BitValue);
-	
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, BitValue ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
 	/*如果单片机速度过快，可在此添加适量延时，以避免超出I2C通信的最大速度*/
 	//...
 }
@@ -29,8 +29,8 @@ void OLED_W_SCL(uint8_t BitValue)
 void OLED_W_SDA(uint8_t BitValue)
 {
 	/*根据BitValue的值，将SDA置高电平或者低电平*/
-	GPIO_WriteBit(GPIOB, GPIO_Pin_9, (BitAction)BitValue);
-	
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, BitValue ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
 	/*如果单片机速度过快，可在此添加适量延时，以避免超出I2C通信的最大速度*/
 	//...
 }
@@ -45,24 +45,25 @@ void OLED_W_SDA(uint8_t BitValue)
 void OLED_GPIO_Init(void)
 {
 	uint32_t i, j;
-	
+
 	/*在初始化前，加入适量延时，待OLED供电稳定*/
 	for (i = 0; i < 1000; i ++)
 	{
 		for (j = 0; j < 1000; j ++);
 	}
-	
+
 	/*将SCL和SDA引脚初始化为开漏模式*/
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
-	
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+
 	GPIO_InitTypeDef GPIO_InitStructure;
- 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_OD;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
- 	GPIO_Init(GPIOB, &GPIO_InitStructure);
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
- 	GPIO_Init(GPIOB, &GPIO_InitStructure);
-	
+ 	GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_OD;
+	GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+	GPIO_InitStructure.Pull = GPIO_NOPULL;
+	GPIO_InitStructure.Pin = GPIO_PIN_8;
+ 	HAL_GPIO_Init(GPIOB, &GPIO_InitStructure);
+	GPIO_InitStructure.Pin = GPIO_PIN_9;
+ 	HAL_GPIO_Init(GPIOB, &GPIO_InitStructure);
+
 	/*释放SCL和SDA*/
 	OLED_W_SCL(1);
 	OLED_W_SDA(1);
@@ -266,7 +267,7 @@ uint8_t OLED_pnpoly(uint8_t nvert, int16_t *vertx, int16_t *verty, int16_t testx
 {
 	int16_t i, j, c = 0;
 	
-	/*此算法由W. Randolph Franklin提出*/
+	
 	/*参考链接：https://wrfranklin.org/Research/Short_Notes/pnpoly.html*/
 	for (i = 0, j = nvert - 1; i < nvert; j = i++)
 	{
